@@ -80,7 +80,7 @@ private:
     // data
     std::atomic_bool found = false; ///< flag used to signal threads should stop
     const unsigned iters;
-    const unsigned difficulty;
+    unsigned difficulty;
     using Promise = std::promise<Solution>;
     using Future = std::future<Solution>;
     Promise promise;
