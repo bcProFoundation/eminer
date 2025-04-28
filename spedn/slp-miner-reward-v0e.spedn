@@ -1,85 +1,92 @@
-// SLP Mint Miner Contract
-
-contract SlpCoinBlockReward(
+contract AlpCoinBlockReward(
     [byte] state_t0,
     [byte] tokenId
 ) {
     challenge generate(
-        [byte; 4] state_t1,  // [byte; 5] state_t1,
+        [byte; 10] state_t1,  // blockHeight (4 bytes) + target (6 bytes)
         [byte; 4] minerSolution,
-        [byte; 8] mintAmount,
         Sig s,
         PubKey minerPK,
         [byte] preimage
     ) {
-        // preimage deserialization
-        ([byte] ver, _ ) = preimage @ 4;                        // nVersion
-        (_, [byte] tail)= preimage @ (size(preimage) - 40);     // hashOutput + nLocktime + sighash
-        ([byte] hashOutput,  _) = tail @ 32;
-        ([byte] torso,_) =  preimage @ (size(preimage) - 44);
-        ( _, [byte] belly) = torso @ 104;
+        // Preimage deserialization
+        ([byte] ver, _) = preimage @ 4;                        // nVersion
+        (_, [byte] tail) = preimage @ (size(preimage) - 40);    // hashOutput + nLocktime + sighash
+        ([byte] hashOutput, ) = tail @ 32;
+        ([byte] torso, ) = preimage @ (size(preimage) - 44);
+        (, [byte] belly) = torso @ 104;
         ([byte] scriptCode, [byte] value) = belly @ (size(belly) - 8);
-        ( _, [byte] rawscr) = scriptCode @ (3 + 1);             // p2sh pushcode is 3 bytes, state pushcode is 1 byte
+        (, [byte] rawscr) = scriptCode @ (3 + 1);              // p2sh pushcode is 3 bytes, state pushcode is 1 byte
         ([byte] prevState, [byte] rawscrBase) = rawscr @ size(state_t0);
 
-        // check sig to enforce valid preimage and scriptCode
+        // Check sig to enforce valid preimage and scriptCode
         verify checkSig(s, minerPK);
         verify checkDataSig(toDataSig(s), sha256(preimage), minerPK);
 
-        // parse state variables from state memory space
-        ([byte; 4] prevBlockHeight, [byte] prevDifficulty) = state_t0 @ 4;
-        ([byte; 4] blockHeight, [byte] difficulty) = state_t1 @ 4;
+        // Parse state variables from state memory space
+        ([byte; 4] prevBlockHeight, [byte; 6] prevTarget) = state_t0 @ 4;
+        ([byte; 4] blockHeight, [byte; 6] target) = state_t1 @ 4;
 
-        // verify script sig is updating state with the proper block height
+        // Verify block height using checkLockTime trick
         int blockHeightInt = bin2num(blockHeight);
-        verify bin2num(prevBlockHeight) == blockHeightInt - 1;
-        verify blockHeightInt <= 42000;
+        verify checkLockTime(TimeStamp(blockHeightInt));  // blockHeight <= current block height
+        verify !checkLockTime(TimeStamp(blockHeightInt + 1));  // blockHeight + 1 > current block height
 
-        // calculate proper mintAmount based on current block height
-        verify mintAmount == 0x0000000ba43b7400;    // 500.00000000
-
-        // verify the miner's solution is acceptable using the prev difficulty
+        // Verify the miner's solution against the previous target
         [byte] solhash = hash256(preimage . minerSolution);
-        int numbytes = bin2num(prevDifficulty);
-        ([byte] work, _) = solhash @ numbytes;
-        verify bin2num(work) == 0;
+        verify bin2num(solhash) <= bin2num(prevTarget);
 
-        // adjust difficulty every 144 blocks using fixed-point arithmetic
-        int adjustmentFactorNumerator = 100000;
-        int adjustmentFactorDenominator = 99918;
-        int newDifficulty = bin2num(prevDifficulty);
-        if (blockHeightInt % 144 == 0) {
-            newDifficulty = (newDifficulty * adjustmentFactorNumerator) / adjustmentFactorDenominator;
+        // Adjust difficulty based on block height difference
+        int prevBlockHeightInt = bin2num(prevBlockHeight);
+        int blocksElapsed = blockHeightInt - prevBlockHeightInt;
+        int adjustmentPeriods = blocksElapsed / 144;
+        int adjustmentFactorNumerator = 99918;
+        int adjustmentFactorDenominator = 100000;
+        [byte; 6] newTarget = prevTarget;
+        if (adjustmentPeriods > 0) {
+            // Apply adjustment factor (0.99918) for each 144-block period
+            int i = 0;
+            while (i < adjustmentPeriods) {
+                newTarget = num2bin((bin2num(newTarget) * adjustmentFactorNumerator) / adjustmentFactorDenominator, 6);
+                i = i + 1;
+            }
+            // Ensure target doesn't go below a minimum (e.g., equivalent to difficulty 1)
+            if (bin2num(newTarget) < 0x000000000100) {
+                newTarget = 0x000000000100;
+            }
         }
-        verify difficulty == num2bin(newDifficulty, 1);
+        verify target == newTarget;
 
-        // prepend the new state to rawscr
-        [byte] varIntState = num2bin(size(blockHeight),1);
-        [byte] rawscrNew = varIntState . blockHeight . difficulty . rawscrBase;
+        // Prepend the new state to rawscr
+        [byte] varIntState = num2bin(size(state_t1), 1);
+        [byte] rawscrNew = varIntState . state_t1 . rawscrBase;
 
-        // BCH output amounts
-        [[byte; 8]; 2] amounts = [0x0000000000000000, 0x2202000000000000]; // [0,546]
+        // XEC output amounts
+        [[byte; 8]; 2] amounts = [0x0000000000000000, 0x2202000000000000]; // [0, 546]
 
-        byte out1ScriptVarInt = 0x39;
-        [byte] tokenVersion = 0x01;
-        [byte] mintMsgChunk1 = 0x6a04534c500001;
-        [byte] mintMsgChunk2 = 0x044d494e5420;
-        [byte] mintMsgChunk3 = 0x010208;
+        // ALP MINT section encoding
+        byte lokadId = 0x534c5032; // 'SLP2'
+        byte tokenType = 0x00;
+        byte txTypeLen = 0x04;
+        [byte] txType = 0x4d494e54; // 'MINT'
+        byte numMintAmounts = 0x01;
+        [byte; 6] fixedMintAmount = 0x640000000000; // 100 base tokens (1.00 tokens, little-endian)
+        byte numMintBatons = 0x01;
 
         byte opDup = 0x76;
         byte opEqual = 0x87;
         byte opHash160 = 0xa9;
         byte pushHash = 0x14;
-        byte pushState = 0x08;
         byte newVarInt1 = 0x17;
         byte newVarInt2 = 0x19;
         byte opEqualverify = 0x88;
         byte opChecksig = 0xac;
 
-        [byte] out1_mint_slp = amounts[0] . out1ScriptVarInt . mintMsgChunk1 . tokenVersion . mintMsgChunk2 . tokenId . mintMsgChunk3 . mintAmount;
+        // ALP MINT section: [lokadId, tokenType, txTypeLen, txType, tokenId, numMintAmounts, fixedMintAmount, numMintBatons]
+        [byte] out1_mint_alp = amounts[0] . 0x2b . lokadId . tokenType . txTypeLen . txType . tokenId . numMintAmounts . fixedMintAmount . numMintBatons;
         [byte] out2_token_p2pkh = amounts[1] . newVarInt2 . opDup . opHash160 . pushHash . hash160(minerPK) . opEqualverify . opChecksig;
         [byte] out3_baton_p2sh = amounts[1] . newVarInt1 . opHash160 . pushHash . hash160(rawscrNew) . opEqual;
 
-        verify hash256(out1_mint_slp . out2_token_p2pkh . out3_baton_p2sh) == Sha256(hashOutput);
-    } 
+        verify hash256(out1_mint_alp . out2_token_p2pkh . out3_baton_p2sh) == Sha256(hashOutput);
+    }
 }
