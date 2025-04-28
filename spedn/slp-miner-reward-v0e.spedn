@@ -1,9 +1,10 @@
 contract AlpCoinBlockReward(
-    [byte] state_t0,
+    [byte; 4] prevBlockHeight,
+    [byte; 6] prevTarget,
     [byte] tokenId
 ) {
     challenge generate(
-        [byte; 10] state_t1,  // blockHeight (4 bytes) + target (6 bytes)
+        [byte; 4] currentBlockHeight,  // Current block height provided by the miner
         [byte; 4] minerSolution,
         Sig s,
         PubKey minerPK,
@@ -17,52 +18,52 @@ contract AlpCoinBlockReward(
         (, [byte] belly) = torso @ 104;
         ([byte] scriptCode, [byte] value) = belly @ (size(belly) - 8);
         (, [byte] rawscr) = scriptCode @ (3 + 1);              // p2sh pushcode is 3 bytes, state pushcode is 1 byte
-        ([byte] prevState, [byte] rawscrBase) = rawscr @ size(state_t0);
+        ([byte] prevState, [byte] rawscrBase) = rawscr @ (size(prevBlockHeight) + size(prevTarget));
 
         // Check sig to enforce valid preimage and scriptCode
         verify checkSig(s, minerPK);
         verify checkDataSig(toDataSig(s), sha256(preimage), minerPK);
 
-        // Parse state variables from state memory space
-        ([byte; 4] prevBlockHeight, [byte; 6] prevTarget) = state_t0 @ 4;
-        ([byte; 4] blockHeight, [byte; 6] target) = state_t1 @ 4;
+        // Verify current block height using checkLockTime trick
+        int currentBlockHeightInt = bin2num(currentBlockHeight);
+        verify checkLockTime(TimeStamp(currentBlockHeightInt));  // currentBlockHeight <= current block height
+        verify !checkLockTime(TimeStamp(currentBlockHeightInt + 1));  // currentBlockHeight + 1 > current block height
 
-        // Verify block height using checkLockTime trick
-        int blockHeightInt = bin2num(blockHeight);
-        verify checkLockTime(TimeStamp(blockHeightInt));  // blockHeight <= current block height
-        verify !checkLockTime(TimeStamp(blockHeightInt + 1));  // blockHeight + 1 > current block height
+        // Ensure current block height is not earlier than prevBlockHeight
+        int prevBlockHeightInt = bin2num(prevBlockHeight);
+        verify currentBlockHeightInt >= prevBlockHeightInt;
 
         // Verify the miner's solution against the previous target
         [byte] solhash = hash256(preimage . minerSolution);
         verify bin2num(solhash) <= bin2num(prevTarget);
 
-        // Adjust difficulty based on block height difference
-        int prevBlockHeightInt = bin2num(prevBlockHeight);
-        int blocksElapsed = blockHeightInt - prevBlockHeightInt;
-        int adjustmentPeriods = blocksElapsed / 144;
-        int adjustmentFactorNumerator = 99918;
-        int adjustmentFactorDenominator = 100000;
+        // Adjust difficulty and set next block height
+        int blocksElapsed = currentBlockHeightInt - prevBlockHeightInt;
+        int prevDay = prevBlockHeightInt / 144;
+        int currentDay = currentBlockHeightInt / 144;
         [byte; 6] newTarget = prevTarget;
-        if (adjustmentPeriods > 0) {
-            // Apply adjustment factor (0.99918) for each 144-block period
-            int i = 0;
-            while (i < adjustmentPeriods) {
-                newTarget = num2bin((bin2num(newTarget) * adjustmentFactorNumerator) / adjustmentFactorDenominator, 6);
-                i = i + 1;
-            }
-            // Ensure target doesn't go below a minimum (e.g., equivalent to difficulty 1)
+        [byte; 4] nextBlockHeight = currentBlockHeight;
+
+        if (blocksElapsed >= 144 || currentDay != prevDay) {
+            // Multiply target by 0.99918 to increase difficulty (reduce target)
+            newTarget = num2bin((bin2num(prevTarget) * 99918) / 100000, 6);
+            // Ensure target doesn't go below a minimum (e.g., equivalent to high difficulty)
             if (bin2num(newTarget) < 0x000000000100) {
                 newTarget = 0x000000000100;
             }
+            // Set next block height to prevBlockHeight + 144
+            nextBlockHeight = num2bin(prevBlockHeightInt + 144, 4);
         }
-        verify target == newTarget;
+
+        // Construct the next state
+        [byte; 10] nextState = nextBlockHeight . newTarget;
 
         // Prepend the new state to rawscr
-        [byte] varIntState = num2bin(size(state_t1), 1);
-        [byte] rawscrNew = varIntState . state_t1 . rawscrBase;
+        [byte] varIntState = num2bin(size(nextState), 1);
+        [byte] rawscrNew = varIntState . nextState . rawscrBase;
 
         // XEC output amounts
-        [[byte; 8]; 2] amounts = [0x0000000000000000, 0x2202000000000000]; // [0, 546]
+        [[byte; 8]; 2] amounts = [0x0000000000000000, 0x2202000000000000]; // [0, 546 satoshis]
 
         // ALP MINT section encoding
         byte lokadId = 0x534c5032; // 'SLP2'
