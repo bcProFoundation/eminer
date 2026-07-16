@@ -217,4 +217,29 @@ Can defer: Ergon DAA, multi-token, mobile miner GPU stack.
 | Ship temple before PoW? | **Yes** — mint-at-offering (model A) validates burn UX; swap baton into PoW covenant later |
 | Better than forking a White Lotus L1? | **Yes** — same rebirth idea, far less ops |
 
-**Bottom line for model C:** high conceptual fit for Eastern rebirth, **medium-high technical feasibility** via Mist-style ALP covenant on eCash; start with MVP remint rules, keep temple burn product decoupled from miner complexity.
+### 8.8 Ritual economics: vàng mã and why Ergon-like remint fits
+
+Vietnamese **vàng mã** (votive paper) is a useful model: people spend real wealth on symbolic offerings and burn them so the act is irreversible. The point is **sacrifice**, not accumulating a scarce collectible.
+
+| Burn design | What happens to “wealth” | Ritual reading |
+|-------------|--------------------------|----------------|
+| Fixed-supply token burn | Remaining **holders** get richer (deflation) | Closer to destroying stock to pump bags |
+| Custodial remint (temple baton) | Temple can recreate supply | Rebirth works, but an earthly mint owner remains |
+| **Ergon-like / PoW remint** | Burn opens room for **new work** to remint; unit tends toward energy/effort cost | Sacrifice dissipates embodied effort; flower can bloom again through labor |
+
+**Why this is desirable for a communal ritual**
+
+1. **Purer sacrifice:** Elastic remint dampens the “I burn so my bags moon” loop. Non-burning holders are not the main beneficiaries.  
+2. **Rebirth without a priest-minter:** Permissionless PoW is the on-chain analogue of “the offering can always return through effort.”  
+3. **Shared ledger of merit:** Cumulative burns are a public commons (temple memory), even if circulating supply stays elastic.  
+4. **Optional monetary commons:** In the Lotus-founder two-loop view, burns are a **demand sink** that helps stabilize the unit for *everyone who uses it*—holders and non-holders alike—without oracles.
+
+**Careful with “energy is infinite ⇒ non-holders benefit”**
+
+Energy is **not** infinite; if it were free, the sacrifice would be empty. The meaningful claim is closer to:
+
+- Each burned token represents **effort already spent** (at mint).  
+- Remint requires **new effort**, so the ritual cycle continually draws real work into the commons.  
+- Non-holders benefit if the token is a **shared medium** (stable unit, public merit record, temple economy)—not merely because joules are unlimited.
+
+So: **Ergon-like mineable + burn-as-offering is philosophically the best match** among the options discussed—provided the product stresses *effort → rebirth → burn → merit*, not *infinite free energy*.
