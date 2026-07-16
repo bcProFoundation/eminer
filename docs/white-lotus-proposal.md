@@ -52,23 +52,51 @@ Lotus Temple already showed: **elastic but inelastic issuance (`log D`) + burns*
 | Indexer | Chronik |
 | Liquidity | Agora + optional temple desk (XEC ↔ token) |
 
-### 3.3 Issuance (Ergon-like MVP → v2)
+### 3.3 Issuance — simpler than Ergon’s `mint ∝ D`
 
-**MVP (ship first)**
+**Insight:** On Ergon, block *rate* is held ~constant by the DAA, so elasticity must live in **coins per block** (`∝ D`). On an ALP PoW remint, you can invert that:
 
-- Fixed token PoW difficulty (tunable)  
-- Fixed atoms per successful remint  
-- CLTV / pacing so remints don’t spam  
-- **No supply cap** — baton never dies  
-- Optional mild Moore decay on mint atoms later  
+- Keep **difficulty fixed** and **atoms per remint fixed** (aside from Moore decay)
+- Allow **many remints per eCash block** (no Mist-style “1 mint / host block” CLTV)
+- Then **remints/time ∝ hashrate**, so **coins/time ∝ hashrate**
 
-**v2 (if burns + hashrate justify it)**
+That is already the Ergon *flow* property — without a token DAA and without `mintAmount ∝ work(D)`.
+
+```
+coins/time ≈ (hashrate / hashes_per_solution) × atoms_per_remint
+```
+
+ALP helps because:
+
+1. Mint baton + eMPP MINT are straightforward to covenant  
+2. Multiple batons can **parallelize** remints if a single baton serializes too hard under load  
+3. You are not fighting a 1-block host pacing rule unless you add one
+
+**Ship this (canonical MVP = enough for v1 economics)**
+
+| Knob | Setting | Role |
+|------|---------|------|
+| PoW difficulty | Fixed, tunable | Sets effort per remint |
+| Atoms per remint | Fixed base `M₀` | Unlock size per solution |
+| Host CLTV “1 mint/block” | **Off** (do not copy Mist pacing) | Preserves hashrate → issuance elasticity |
+| Supply cap | **None** — baton never dies | Rebirth |
+| Moore / Koomey decay | `M(t) = M₀ · δ^{floor(t/τ)}` | Keeps effort-per-coin stable as hardware improves |
+
+**Moore decay clock (important):** decay must track **wall time** (eCash median time / block height as time proxy), **not** token mint height. Mint height races with hashrate; using it as the Moore clock would shrink `M` faster exactly when demand/hashrate is high — the opposite of Ergon’s calendar efficiency correction.
+
+**What you can skip (unless later evidence demands it)**
 
 - Token-local DAA  
-- `mintAmount ∝ work(D)` (Ergon linear analogue)  
-- Moore/Koomey decay on the proportionality constant  
+- `mintAmount ∝ work(D)`  
+Those are for chains that *fix* block rate. Your design *varies remint rate* instead.
 
-This is the ritual-critical difference from Lotus Temple: issuance must **answer work**, not crawl like `log(D)`.
+**Remaining caveats**
+
+1. **Single baton is serial:** only one spend of the tip baton wins at a time (chain of mints in one block is still ordered). High contention ⇒ wasted work. Mitigate with **ALP multi-baton** parallelism if needed.  
+2. **Difficulty still matters:** too easy ⇒ fee spam / empty ritual; too hard ⇒ rebirth stalls. Tune `D` and `M₀` from burn demand.  
+3. **Fees:** every remint pays XEC — natural anti-spam alongside PoW.
+
+This is the ritual-critical difference from Lotus Temple: issuance **answers aggregate work via remint frequency**, not via a near-flat `log(D)` subsidy.
 
 ### 3.4 App flow
 
@@ -117,9 +145,9 @@ Until then, L1 is premature optimization of sovereignty.
 |-------|-------------|
 | **0** | Spec: covenant rules, mint formula, burn metadata LOKAD, baton policy |
 | **1** | GENESIS + Chronik indexing + temple burn UI on eCash (custodial remint OK for dogfood) |
-| **2** | PoW remint covenant + miner (eminer → Chronik/`ecash-lib`) |
+| **2** | PoW remint covenant + miner (fixed `D`, fixed `M`, Moore on wall-time; **no** 1-mint/block CLTV) |
 | **3** | Agora market + public cumulative-burn explorer |
-| **4** | Tune toward `mint ∝ D` if data supports it |
+| **4** | Multi-baton parallelism and/or retune `D`/`M` from burn & hashrate data |
 | **5** | Revisit L1 only with evidence from 1–4 |
 
 ---

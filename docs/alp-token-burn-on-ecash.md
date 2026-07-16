@@ -166,15 +166,17 @@ Spiritual reading: **work recreates the flower; burn offers it; the baton is the
 
 ALP’s **multiple mint batons** also help: e.g. one PoW baton (permissionless rebirth) + one temple baton (bootstrap / emergency) without a hard fork.
 
-### 8.3 Difficulty tiers
+### 8.3 Issuance tiers (prefer frequency elasticity over `mint ∝ D`)
+
+Ergon needs `coins/block ∝ D` because its DAA keeps **blocks/time** ~constant. An ALP remint can keep **coins/remint** fixed and let **remints/time ∝ hashrate** instead — same coins/time elasticity, simpler covenant.
 
 | Tier | Design | Feasibility |
 |------|--------|-------------|
-| **MVP** | Fixed difficulty, fixed mint per success, CLTV ≈ 1 mint / N blocks (Mist-like, but **no** asymptotic “21M death”) | **High** — mostly a port + ALP OP_RETURN rewrite |
-| **v1.5** | Slow Moore-style decay of mint amount (tokens stay “effortful” as hardware improves) | **Medium** — param + state in redeemScript |
-| **v2** | Token-local DAA + `mint ∝ difficulty` (Ergon-like elastic rebirth) | **Harder** — DAA in Script/state, miner games, more audit surface |
+| **Canonical** | Fixed `D`, fixed atoms/`M`, **no** 1-mint/host-block CLTV, perpetual baton, Moore decay on **wall-time** | **High** — simpler than Mist+Ergon |
+| **Optional** | ALP multi-baton for parallel remints under contention | Medium |
+| **Usually skip** | Token DAA + `mint ∝ work(D)` | Only if remint-rate design proves insufficient |
 
-For a temple, **MVP is enough**: continuous rebirth without a central minter. Ergon-like elasticity is optional prestige, not required for ritual meaning.
+Do **not** copy Mist’s CLTV sync if you want Ergon-like flow: that freezes remints/time ≈ host blocks/time and kills hashrate→issuance elasticity.
 
 ### 8.4 Product flow (PoW ↔ burn)
 
@@ -188,12 +190,13 @@ So the temple app still needs: burn UX, Chronik watchers, and a path to acquire 
 
 ### 8.5 Main risks
 
-1. **Baton race:** First valid spend wins (same as Mist); wasted work for losers.  
+1. **Baton race:** First valid spend wins (same as Mist); wasted work for losers. Multi-baton mitigates serialization.  
 2. **Script / ALP byte exactness:** Covenant must match Chronik’s ALP parse exactly or minted tokens look invalid to wallets.  
 3. **Unaudited Script:** Mist warned its contracts were unaudited; treat White Lotus covenant as security-critical.  
 4. **Fee + hashrate cold start:** Early miners need XEC for fees; low token demand → low hashrate → slow rebirth (acceptable if temple also keeps a secondary baton).  
-5. **Economic griefing:** If mint reward ≫ burn demand, circulating dump; tune mint size / CLTV pacing.  
-6. **Not L1 consensus:** Rules live in the covenant + indexer, not eCash consensus (acceptable and normal for ALP).
+5. **Economic griefing:** If mint reward ≫ burn demand, circulating dump; tune `D` and `M` (not host-block CLTV pacing).  
+6. **Moore clock:** decay on eCash time/height, not token mint height.  
+7. **Not L1 consensus:** Rules live in the covenant + indexer, not eCash consensus (acceptable and normal for ALP).
 
 ### 8.6 Build estimate (engineering shape, not calendar)
 
@@ -205,7 +208,7 @@ Must build:
 4. Temple burn + cumulative-burn indexer  
 5. Acquisition path (Agora listing or in-app swap)
 
-Can defer: Ergon DAA, multi-token, mobile miner GPU stack.
+Can defer: `mint ∝ D` DAA, multi-token, mobile miner GPU stack.
 
 ### 8.7 Recommendation
 
@@ -213,7 +216,7 @@ Can defer: Ergon DAA, multi-token, mobile miner GPU stack.
 |----------|--------|
 | Is permissionless PoW remint feasible on eCash ALP? | **Yes** |
 | Closest prior art | Mist/eminer + eCash Agora/ALP tooling |
-| Right first covenant | Fixed difficulty + perpetual baton + paced mint (no supply cap) |
+| Right covenant economics | Fixed `D` + fixed `M` + many remints allowed + Moore on wall-time (**not** Mist 1/block CLTV; **not** required `mint ∝ D`) |
 | Ship temple before PoW? | **Yes** — mint-at-offering (model A) validates burn UX; swap baton into PoW covenant later |
 | Better than forking a White Lotus L1? | **Yes** — same rebirth idea, far less ops |
 
