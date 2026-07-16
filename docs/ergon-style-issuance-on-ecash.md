@@ -1,6 +1,8 @@
 # Feasibility: Ergon-style (energy-pegged) issuance via eminer/Spedn on eCash
 
-**Verdict:** A **true Ergon-style elastic, energy-cost-pegged currency on eCash is feasible as a redesigned mineable token**, but **not** by reusing Mist v1 as-is, and **not** as a USD-pegged stablecoin. Pegging mint volume to **eCash chain difficulty** from a covenant is **not possible** without oracles or a consensus hard fork. The closest workable path is a **CashTokens minting-baton covenant** whose **own** PoW difficulty drives mint amount (Ergon’s proportional-reward idea, applied to the token’s hashrate).
+**Verdict:** A **true Ergon-style elastic, energy-cost-pegged currency on eCash is feasible as a redesigned mineable token**, but **not** by reusing Mist v1 as-is, and **not** as a USD-pegged stablecoin. Pegging mint volume to **eCash chain difficulty** from a covenant is **not possible** without oracles or a consensus hard fork. The closest workable path is an **ALP (or SLP) minting-baton covenant** whose **own** PoW difficulty drives mint amount (Ergon’s proportional-reward idea, applied to the token’s hashrate).
+
+**Correction:** CashTokens are **BCH-native**, not available on eCash without a hard fork. On eCash use **ALP** (preferred) or legacy SLP/eToken. See also `docs/alp-token-burn-on-ecash.md` for intentional burn suitability.
 
 ---
 
@@ -12,7 +14,7 @@
 | **Spedn / “SPDN”** | BCH Script DSL used to compile mint covenants (`spedn/slp-miner-reward-v*.spedn`). There is **no SPDN currency** in this repo |
 | **Mist v1** | Fixed token PoW difficulty + scheduled reward reduction + CLTV sync (~1 mint per host block) |
 | **Ergon (XRG)** | Separate PoW chain (`Bitcoin-Static`) where **native coinbase ∝ block difficulty**, with Moore/Koomey decay (~2.3y half-life). Marketed as **stable MoE pegged to mining energy cost**, not a fiat stablecoin |
-| **eCash (XEC)** | Host chain; custom assets today via **CashTokens** (native) or legacy SLP/eToken. Script can introspect tx/UTXO/token fields, **not** `nBits`/chain work |
+| **eCash (XEC)** | Host chain; custom assets via **ALP** (preferred) or legacy SLP/eToken — **not** CashTokens (BCH-only). Script/covenants cannot read `nBits`/chain work |
 
 Ergon’s design goal (from [prop-reward.pdf](https://ergon.moe/prop-reward.pdf)):
 
@@ -66,7 +68,7 @@ Lotus (`lotusd`) already experiments with **difficulty-based native subsidy** (`
 
 ---
 
-## 4. Workable design: Ergon-like mineable CashToken on eCash
+## 4. Workable design: Ergon-like mineable ALP token on eCash
 
 ### 4.1 Core rules (token-layer analogue)
 
@@ -76,7 +78,7 @@ Treat the minting baton covenant as a mini-Ergon:
 2. **DAA** on `D` targeting a wall-clock mint rate (e.g. N successful mints per day), using timestamps / host locktime carefully  
 3. **Proportional mint:** `mintAmount = floor(c(t) * work(D))`  
 4. **Moore decay on `c(t)`** (daily multiplicative factor ≈ Ergon’s `99918/100000` for ~2.3y half-life), stored or derived from mint height  
-5. **Singleton mint baton** (CashTokens minting NFT preferred over SLP baton)  
+5. **Singleton mint baton** (ALP mint baton; close/burn when fixed supply is desired)
 
 Then, with DAA holding mint *rate* roughly constant:
 
@@ -86,17 +88,16 @@ Then, with DAA holding mint *rate* roughly constant:
 
 That matches Ergon’s *mechanism*, with the important caveat that security of the **ledger** is still XEC miners’ PoW; token miners only pay for **issuance rights**.
 
-### 4.2 Why CashTokens > SLP for eCash
+### 4.2 Why ALP > legacy SLP on eCash
 
-| | SLP (eminer today) | CashTokens on eCash |
-|--|--------------------|---------------------|
-| Validation | Client/indexer (OP_RETURN) | Consensus-enforced token amounts |
-| Mint authority | Script baton + SLP MINT msg | Minting NFT capability |
-| Covenant tooling | Spedn + preimage tricks | CashScript + native introspection |
-| Wallet/ecosystem on XEC | Legacy eToken path | Current eCash standard |
-| eminer port effort | High (BCHD → Chronik/ecash-lib) | New miner + contract; reuse PoW ideas |
+| | Legacy SLP / eToken | ALP on eCash |
+|--|---------------------|--------------|
+| Encoding | Big-endian, single OP_RETURN | Little-endian, **eMPP** multi-section |
+| Intentional burn | Possible; exact burns often awkward | First-class `alpBurn` in `ecash-lib` |
+| Indexing | Chronik | Chronik (default token index) |
+| CashTokens | N/A on eCash | N/A on eCash (BCH-only) |
 
-Recommend **CashTokens + CashScript** on eCash, using eminer only as a **reference** for PoW-mint UX and emission experiments—not as a drop-in deploy.
+Recommend **ALP + Chronik + ecash-lib** on eCash. Use eminer only as a **reference** for PoW-mint UX if pursuing Ergon-like issuance—not as a drop-in deploy. For temple burns, see `docs/alp-token-burn-on-ecash.md`.
 
 ### 4.3 Critical design choices vs Mist
 
@@ -122,7 +123,7 @@ Without removing the “fixed reward per host block” pattern, the energy peg *
 
 ### A. Token-layer Ergon analogue (recommended research path)
 
-- **Scope:** New CashToken category + minting covenant + miner (Chronik / `ecash-lib`)  
+- **Scope:** New ALP token + minting covenant + miner (Chronik / `ecash-lib`)  
 - **Pros:** No eCash hard fork; permissionless; closest to “stablecoin possible” in Ergon’s meaning  
 - **Cons:** Bootstrap hashrate/liquidity; DAA and Moore params are hard; SLP eminer not reusable as-is  
 - **Invasiveness:** New contracts + miner; optional Lixi/Local-eCash listing later  
@@ -142,9 +143,9 @@ Without removing the “fixed reward per host block” pattern, the energy peg *
 - **Pros:** Already built  
 - **Cons:** Economically false; fixed emission ≠ energy peg  
 
-### E. Fiat-backed or overcollateralized USD stable on CashTokens
+### E. Fiat-backed or overcollateralized USD stable on eCash
 
-- Separate product (custody, legal, oracles, liquidations). eminer/Ergon issuance theory does not deliver this.
+- Separate product (custody, legal, oracles, liquidations), likely ALP or custodial. eminer/Ergon issuance theory does not deliver this.
 
 ---
 
