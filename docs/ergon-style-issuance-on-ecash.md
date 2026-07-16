@@ -163,8 +163,8 @@ Without removing the “fixed reward per host block” pattern, the energy peg *
 
 ## 7. Suggested next steps (if pursuing)
 
-1. Specify consensus rules for the covenant: state layout (height, `D`, last-mtime), mint formula, DAA, Moore factor, baton conservation  
-2. Prototype in CashScript with regtest / chipnet; property-test mint amounts vs `D`  
+1. Specify covenant rules: state layout (height, `D`, last-mtime), mint formula, DAA, Moore factor, baton conservation  
+2. Prototype ALP mint baton + PoW covenant on chipnet; property-test mint amounts vs `D`  
 3. Minimal miner: solve PoW, submit mint, track baton UTXO via Chronik  
 4. Parameter study: target mint interval, `c(0)`, decay τ, min/max `D`  
 5. Explicitly **non-goals** for v1: USD peg, XEC peg, cross-chain bridges  
@@ -175,10 +175,10 @@ Without removing the “fixed reward per host block” pattern, the energy peg *
 
 | Question | Answer |
 |----------|--------|
-| Can eminer/Spedn launch an Ergon-**like** currency on eCash? | **Yes, with a new covenant design** (proportional mint to **token** difficulty + DAA + Moore decay), preferably as **CashTokens** |
+| Can eminer/Spedn launch an Ergon-**like** currency on eCash? | **Yes, with a new covenant design** (proportional mint to **token** difficulty + DAA + Moore decay), preferably as **ALP** |
 | Can Mist v1 parameters alone do it? | **No** — fixed difficulty + scheduled emission is anti-Ergon |
 | Can mint track **eCash** difficulty trustlessly? | **No** from script alone |
 | Does that yield a **USD stablecoin**? | **No** — at best an **energy-cost-elastic** unit of account |
 | Is a fiat stablecoin “possible” on eCash? | Yes via **other** designs (reserves/collateral/oracles), unrelated to Ergon/eminer |
 
-**Most honest framing:** use eminer as prior art for **decentralized PoW mint batons**, then implement Ergon’s proportional-reward economics on eCash CashTokens so a **stable (energy-pegged) medium of exchange** can be attempted—not a dollar stablecoin, and not a config tweak of Mist.
+**Most honest framing:** use eminer as prior art for **decentralized PoW mint batons**, then implement Ergon’s proportional-reward economics as an **ALP** token on eCash so a **stable (energy-pegged) medium of exchange** can be attempted—not a dollar stablecoin, and not a config tweak of Mist.
