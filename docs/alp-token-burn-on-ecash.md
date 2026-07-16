@@ -172,9 +172,11 @@ Ergon needs `coins/block ∝ D` because its DAA keeps **blocks/time** ~constant.
 
 | Tier | Design | Feasibility |
 |------|--------|-------------|
-| **Canonical** | Fixed `D`, fixed atoms/`M`, **no** 1-mint/host-block CLTV, perpetual baton, Moore decay on **wall-time** | **High** — simpler than Mist+Ergon |
-| **Optional** | ALP multi-baton for parallel remints under contention | Medium |
+| **Canonical** | Fixed `D`, base `M₀`, Moore `δ=99918/100000` on wall-time, **`N≥2` parallel PoW batons**, no 1-mint/host-block CLTV | **High** — simpler than Mist+full Ergon `mint∝D` |
+| **Optional** | Temple bootstrap baton (retire later) | Easy |
 | **Usually skip** | Token DAA + `mint ∝ work(D)` | Only if remint-rate design proves insufficient |
+
+**Moore constant:** use Ergon’s **post-fix** daily factor [`99918/100000`](https://github.com/Ergon-moe/Bitcoin-Static/blob/2e8d5f7635c899cc99e71f06dedbe72b3ff7f07b/src/validation.cpp#L978) (~2.3y half-life). Do **not** use pre-fix `99826/100000` (~1.1y).
 
 Do **not** copy Mist’s CLTV sync if you want Ergon-like flow: that freezes remints/time ≈ host blocks/time and kills hashrate→issuance elasticity.
 
@@ -216,7 +218,7 @@ Can defer: `mint ∝ D` DAA, multi-token, mobile miner GPU stack.
 |----------|--------|
 | Is permissionless PoW remint feasible on eCash ALP? | **Yes** |
 | Closest prior art | Mist/eminer + eCash Agora/ALP tooling |
-| Right covenant economics | Fixed `D` + fixed `M` + many remints allowed + Moore on wall-time (**not** Mist 1/block CLTV; **not** required `mint ∝ D`) |
+| Right covenant economics | Fixed `D` + `M(t)=M₀·(99918/100000)^k` + **`N≥2` parallel batons** + no Mist 1/block CLTV (**not** required `mint ∝ D`) |
 | Ship temple before PoW? | **Yes** — mint-at-offering (model A) validates burn UX; swap baton into PoW covenant later |
 | Better than forking a White Lotus L1? | **Yes** — same rebirth idea, far less ops |
 

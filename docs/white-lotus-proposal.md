@@ -19,9 +19,9 @@ Ritual need (vàng mã sacrifice + rebirth + commons) is satisfied by **issuance
 
 | Criterion | ALP on eCash | New L1 |
 |-----------|--------------|--------|
-| Ergon-like `mint ∝ work` | Yes — PoW mint-baton covenant | Yes — `GetBlockSubsidy ∝ difficulty` |
-| Vàng mã burn + rebirth | Yes — burn + perpetual baton | Yes — native burn + subsidy |
-| Holder-capture vs Lotus `log(D)` | Avoided if mint is linear in token work | Avoided if subsidy is linear in `D` |
+| Work-elastic issuance | Yes — remint *frequency* ∝ hashrate (+ Moore) | Yes — `GetBlockSubsidy ∝ difficulty` (+ Moore) |
+| Vàng mã burn + rebirth | Yes — burn + perpetual baton(s) | Yes — native burn + subsidy |
+| Holder-capture vs Lotus `log(D)` | Avoided (issuance answers work) | Avoided if subsidy ∝ `D` |
 | Ops burden | App + covenant + miner | Full node, miners, explorers, upgrades forever |
 | User acquisition of offering | XEC → Agora/desk → burn | Need exchange/liquidity for new coin |
 | Maintenance of base chain | Bitcoin ABC / eCash | You |
@@ -47,56 +47,70 @@ Lotus Temple already showed: **elastic but inelastic issuance (`log D`) + burns*
 | Host | eCash (XEC) |
 | Protocol | **ALP** (`SLP2` / eMPP) |
 | Ticker (example) | `WLOTUS` / `WLTS` |
-| Mint authority | **Permissionless PoW covenant** holding the mint baton |
+| Mint authority | **Permissionless PoW covenants** on **multiple** mint batons |
 | Burn | Intentional `alpBurn` + memorial metadata (person / temple / offering tier) |
 | Indexer | Chronik |
 | Liquidity | Agora + optional temple desk (XEC ↔ token) |
 
-### 3.3 Issuance — simpler than Ergon’s `mint ∝ D`
+### 3.3 Issuance — remint frequency + Moore decay
 
-**Insight:** On Ergon, block *rate* is held ~constant by the DAA, so elasticity must live in **coins per block** (`∝ D`). On an ALP PoW remint, you can invert that:
+**Insight:** On Ergon, block *rate* is held ~constant by the DAA, so elasticity lives in **coins per block** (`∝ D`). On an ALP PoW remint, invert that:
 
-- Keep **difficulty fixed** and **atoms per remint fixed** (aside from Moore decay)
-- Allow **many remints per eCash block** (no Mist-style “1 mint / host block” CLTV)
-- Then **remints/time ∝ hashrate**, so **coins/time ∝ hashrate**
-
-That is already the Ergon *flow* property — without a token DAA and without `mintAmount ∝ work(D)`.
+- Fixed PoW difficulty; base atoms per remint before Moore  
+- **Many remints per eCash block** (no Mist “1 mint / host block” CLTV)  
+- **Multiple ALP mint batons** for **true parallel** remints (§3.5)  
+- ⇒ **remints/time ∝ hashrate** ⇒ **coins/time ∝ hashrate**
 
 ```
-coins/time ≈ (hashrate / hashes_per_solution) × atoms_per_remint
+coins/time ≈ N_batons × (hashrate_per_baton / hashes_per_solution) × M(t)
 ```
 
-ALP helps because:
+No token DAA and no `mintAmount ∝ work(D)` required for Ergon-like *flow*.
 
-1. Mint baton + eMPP MINT are straightforward to covenant  
-2. Multiple batons can **parallelize** remints if a single baton serializes too hard under load  
-3. You are not fighting a 1-block host pacing rule unless you add one
+#### Moore / Koomey — Ergon **post-launch** constant only
 
-**Ship this (canonical MVP = enough for v1 economics)**
+Ergon’s daily correction in [`validation.cpp` (GetBlockSubsidy)](https://github.com/Ergon-moe/Bitcoin-Static/blob/2e8d5f7635c899cc99e71f06dedbe72b3ff7f07b/src/validation.cpp#L978):
+
+```cpp
+// Pre-EMA (obsolete ~1.1y half-life) — DO NOT USE FOR WLOTUS
+aWork *= 99826; aWork /= 100000;
+
+// Post-EMA / corrected (~2.3y half-life) — USE THIS
+aWork *= 99918; aWork /= 100000;
+```
+
+Bitcoin Static release notes fixed Moore from **1.1y → 2.3y**. **WLOTUS ships `δ = 99918/100000` from genesis** — never the old `99826` factor.
+
+| Symbol | WLOTUS | Notes |
+|--------|--------|-------|
+| `δ` | **`99918 / 100000`** | Ergon corrected daily factor |
+| Day step | ~1 wall day | Ergon: once per `nSubsidyHalvingInterval` (144 × 10‑min blocks). Mirror with ~144 eCash blocks or median-time day |
+| `M(t)` | `M₀ · δ^{k}` | `k = floor(elapsed_days)` since genesis |
+| Clock | **eCash height / median time** | **Not** token-mint height (that races with hashrate) |
+
+Covenant integer form:
+
+```
+M_expected = M₀
+repeat k times:
+    M_expected = (M_expected * 99918) / 100000
+verify mintAtoms == M_expected
+```
+
+#### Canonical knobs
 
 | Knob | Setting | Role |
 |------|---------|------|
-| PoW difficulty | Fixed, tunable | Sets effort per remint |
-| Atoms per remint | Fixed base `M₀` | Unlock size per solution |
-| Host CLTV “1 mint/block” | **Off** (do not copy Mist pacing) | Preserves hashrate → issuance elasticity |
-| Supply cap | **None** — baton never dies | Rebirth |
-| Moore / Koomey decay | `M(t) = M₀ · δ^{floor(t/τ)}` | Keeps effort-per-coin stable as hardware improves |
+| PoW difficulty `D` | Fixed, tunable | Effort per remint solution |
+| Base atoms `M₀` | Genesis constant | Initial unlock per solution |
+| Moore `δ` | **`99918/100000`** | ~2.3y half-life efficiency decay |
+| Host CLTV 1-mint/block | **Off** | Keep hashrate → issuance elasticity |
+| Supply cap | **None** | Batons never die |
+| PoW baton count `N` | **`N ≥ 2` at genesis** | True parallel remints (§3.5) |
 
-**Moore decay clock (important):** decay must track **wall time** (eCash median time / block height as time proxy), **not** token mint height. Mint height races with hashrate; using it as the Moore clock would shrink `M` faster exactly when demand/hashrate is high — the opposite of Ergon’s calendar efficiency correction.
+**Skip unless needed later:** token-local DAA; `mintAmount ∝ work(D)`.
 
-**What you can skip (unless later evidence demands it)**
-
-- Token-local DAA  
-- `mintAmount ∝ work(D)`  
-Those are for chains that *fix* block rate. Your design *varies remint rate* instead.
-
-**Remaining caveats**
-
-1. **Single baton is serial:** only one spend of the tip baton wins at a time (chain of mints in one block is still ordered). High contention ⇒ wasted work. Mitigate with **ALP multi-baton** parallelism if needed.  
-2. **Difficulty still matters:** too easy ⇒ fee spam / empty ritual; too hard ⇒ rebirth stalls. Tune `D` and `M₀` from burn demand.  
-3. **Fees:** every remint pays XEC — natural anti-spam alongside PoW.
-
-This is the ritual-critical difference from Lotus Temple: issuance **answers aggregate work via remint frequency**, not via a near-flat `log(D)` subsidy.
+Tune `D` / `M₀` / `N` from burn demand and miner contention. Each remint pays XEC fees (anti-spam).
 
 ### 3.4 App flow
 
@@ -108,19 +122,30 @@ Devotee opens memorial page
   → Chronik + API update cumulative merit
 
 Parallel:
-  Miners race for baton → remint → sell/provide liquidity
+  Miners race across N PoW batons → remint → sell / provide liquidity
 ```
 
 Reuse `app-lotus-temple` UX; retarget settlement from XPI burns to ALP burns on eCash.
 
-### 3.5 Optional dual baton
+### 3.5 Multiple mint batons (first-class parallelization)
 
-ALP allows **multiple mint batons**:
+ALP allows **many mint batons** (SLP allowed only one). White Lotus treats multi-baton as **core design**.
 
-1. **PoW baton** — permissionless rebirth (canonical)  
-2. **Temple baton** — cold-start / emergency only, policy-limited, ideally time-locked or multi-sig  
+**A. PoW baton set (canonical issuance)**
 
-Prefer retiring (2) once miners + liquidity exist.
+- Genesis creates **`N ≥ 2` identical PoW covenant batons** (independent tips, same rules).  
+- Miners remint **in parallel** in the same eCash block — not merely a serial chain on one tip.  
+- Each successful spend: PoW OK → mint exactly `M(t)` → **return one baton** to the next covenant state (**conserve `N`**).  
+- Choose `N` at genesis (e.g. 4–16); change only via a deliberate migration if ever required.
+
+This is how “multiple mints per block” becomes **true parallelization** and matches frequency-elasticity in §3.3. A single baton alone still serializes and wastes work under load.
+
+**B. Optional temple baton (bootstrap only)**
+
+- Separate rate-limited / multi-sig baton for cold-start or emergency.  
+- Prefer destroying it once PoW batons + Agora liquidity exist.
+
+**Invariant:** PoW batons are never burned; temple baton may be retired.
 
 ---
 
@@ -133,7 +158,7 @@ Consider a White Lotus / Ergon-like L1 **only if**:
 3. You accept permanent chain ops (or a funded commons to run them)  
 4. You want hard fork-fairness (“energy can’t be counted twice”) as a first-class property  
 
-Then: fork a maintained UTXO codebase (eCash lineage or Bitcoin Static ideas), set **`subsidy ∝ difficulty` + Moore decay**, **0% founder fund**, fee burn optional, genesis branded White Lotus. Port the temple app to native burns.
+Then: fork a maintained UTXO codebase, set work-elastic subsidy + **`δ = 99918/100000` Moore**, **0% founder fund**, fee burn optional. Port the temple app to native burns.
 
 Until then, L1 is premature optimization of sovereignty.
 
@@ -143,11 +168,11 @@ Until then, L1 is premature optimization of sovereignty.
 
 | Phase | Deliverable |
 |-------|-------------|
-| **0** | Spec: covenant rules, mint formula, burn metadata LOKAD, baton policy |
-| **1** | GENESIS + Chronik indexing + temple burn UI on eCash (custodial remint OK for dogfood) |
-| **2** | PoW remint covenant + miner (fixed `D`, fixed `M`, Moore on wall-time; **no** 1-mint/block CLTV) |
+| **0** | Spec: covenant rules, `M(t)` with `δ=99918/100000`, burn LOKAD, **`N` baton policy** |
+| **1** | GENESIS (`N` PoW batons) + Chronik + temple burn UI (custodial remint OK to dogfood) |
+| **2** | PoW remint covenant + miner (fixed `D`, Moore on wall-time, **multi-baton parallel**, no 1-mint/block CLTV) |
 | **3** | Agora market + public cumulative-burn explorer |
-| **4** | Multi-baton parallelism and/or retune `D`/`M` from burn & hashrate data |
+| **4** | Retune `D` / `M₀` / `N` from burn & hashrate data |
 | **5** | Revisit L1 only with evidence from 1–4 |
 
 ---
@@ -157,6 +182,8 @@ Until then, L1 is premature optimization of sovereignty.
 - USD stablecoin  
 - Fixed max supply  
 - Lotus-style `log(D)` inelastic subsidy  
+- Ergon’s obsolete Moore factor `99826/100000`  
+- Mist-style 1-mint-per-host-block CLTV  
 - Launching a new L1 to “build community faster”  
 - Relying on TBP (not needed on eCash)  
 
@@ -164,4 +191,4 @@ Until then, L1 is premature optimization of sovereignty.
 
 ## 7. One-line decision
 
-**White Lotus = Ergon-like ALP on eCash (PoW remint + burn-as-vàng-mã). L1 only after the ritual works.**
+**White Lotus = ALP on eCash with parallel PoW remint batons, fixed `D`, Moore `δ=99918/100000`, and burn-as-vàng-mã. L1 only after the ritual works.**
