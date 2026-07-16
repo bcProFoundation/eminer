@@ -242,4 +242,26 @@ Energy is **not** infinite; if it were free, the sacrifice would be empty. The m
 - Remint requires **new effort**, so the ritual cycle continually draws real work into the commons.  
 - Non-holders benefit if the token is a **shared medium** (stable unit, public merit record, temple economy)—not merely because joules are unlimited.
 
-So: **Ergon-like mineable + burn-as-offering is philosophically the best match** among the options discussed—provided the product stresses *effort → rebirth → burn → merit*, not *infinite free energy*.
+### 8.9 Lotus `log(D)` vs `sqrt(D)` vs Ergon — and the “scarce community” temptation
+
+Lotus today pays `R ≈ a·log(D)` (`lotusd` `GetBlockSubsidy`). That is **highly inelastic**: difficulty can rise a lot while issuance barely expands. So ritual burns behave like Bitcoin burns — **holders capture most of the scarcity**. Lotus Temple’s experience matches the math.
+
+Elasticity of issuance to work (higher = burns refill faster, holders gain less):
+
+```
+log(D)  <  sqrt(D)  <  D¹ (Ergon linear)
+ Lotus     Shammah     energy-proportional
+           proposal
+```
+
+Shammah’s move toward **sublinear work-coupled** emission (e.g. √-like / `γ ∈ (0,1)` in the 2026 papers) is partly the same concern: make supply answer work and burn demand, not just enrich bags. It is **closer to Ergon than Lotus v1**, but still **less elastic than Ergon** (sublinear by design, for Lyapunov stability / manipulation resistance).
+
+| Goal | Prefer |
+|------|--------|
+| Fast speculative community / NGU | Scarcer / `log`-like (Lotus-shaped) |
+| Vàng mã sacrifice + rebirth + commons | **Ergon-like `mint ∝ work`** |
+| Fork fairness (“energy can’t be counted twice”) | **Ergon-like** (strongest) |
+
+**Opinion for White Lotus temple:** do **not** choose scarcity to “build community quicker.” That community is mostly holders; you already saw burns serve them more than the wider commons. Build community with **ritual UX, Vietnamese brand, multi-temple, cumulative merit** — and let issuance stay **Ergon-like** so sacrifice stays clean.
+
+Bootstrap without fake scarcity: slightly higher early PoW mint that still requires work, Agora liquidity, temple-desk acquisition — not a hard cap.
