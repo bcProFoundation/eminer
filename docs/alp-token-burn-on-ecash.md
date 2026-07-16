@@ -2,6 +2,8 @@
 
 **Verdict: Yes — ALP is suitable and currently the right token layer for a burn-as-respect product on eCash.** Prefer ALP over legacy SLP. Do not plan on CashTokens (those are BCH-native; eCash would need a hard fork). TBP (Token Burn *Protection*) is a different problem and is largely unnecessary on eCash.
 
+**Supply policy correction:** A **fixed supply is a poor fit** for Eastern memorial / rebirth symbolism. When every token is burned, offerings cannot continue. Prefer a **perpetual mint baton** so tokens can be **reborn** as new offerings are made. Track **cumulative burned** (merit) separately from **circulating** supply.
+
 ---
 
 ## 1. Correction: CashTokens vs ALP on eCash
@@ -53,20 +55,44 @@ For a memorial offering, a burn tx can also carry **extra eMPP pushdata** (templ
 |-------------|---------|
 | Intentional, attributable destruction of value | Strong — explicit burn + Chronik history |
 | Branded offering token (e.g. White Lotus) | Strong — GENESIS with ticker/name/url/data |
-| Fixed / scarce supply for ritual meaning | Strong — GENESIS with `num mint batons = 0`, or mint then destroy baton |
+| Regenerative / rebirth supply (never “runs out”) | Strong — keep mint baton(s) alive; ALP allows multiple batons |
 | Metadata: who / which temple / flower vs incense | Strong — eMPP multi-section + app OP_RETURN |
 | Wallet / indexer support on eCash | Strong — Chronik + Cashtab/`ecash-lib` stack |
 | Consensus enforcement like CashTokens | **No** — still indexer rules; trust Chronik + wallet discipline |
 | Accidental burn by random XEC wallet | Low risk on eCash (token-aware ecosystem); still educate users |
 
-**Recommended token policy for offerings**
+**Recommended token policy for offerings (rebirth / regenerative)**
 
-- Create one ALP fungible token (e.g. `WLOTUS`) with **no open mint baton** (or baton burned after initial mint).
-- Sell/distribute tokens via app or market.
-- Offering = `alpBurn` of N atoms + memorial eMPP/app payload.
-- Index burns per person/temple via Chronik + your API (same pattern as Lotus Temple’s XPI burn indexing).
+Do **not** close the mint baton. ALP was explicitly improved over SLP to allow **multiple mint batons** and ongoing `MINT` while a baton input is present ([ALP spec](https://ecashbuilders.notion.site/ALP-a862a4130877448387373b9e6a93dd97)).
 
-**Alternative (even simpler):** burn **native XEC** with OP_RETURN memorial tags (closest to current Lotus Temple XPI burns). Use ALP when you want a **named sacred token**, not merely payment destruction.
+Preferred cycle:
+
+```
+devotee pays XEC (or holds tokens)
+        ↓
+   ALP MINT (rebirth) — baton stays alive
+        ↓
+   ALP BURN as offering + memorial metadata
+        ↓
+ cumulative burned ↑   circulating can stay small
+```
+
+Practical variants (pick one trust model):
+
+| Model | How rebirth works | Trust | Spiritual fit |
+|-------|-------------------|-------|----------------|
+| **A. Mint-at-offering (recommended v1)** | App/temple holds baton; each offering mints then burns (or mints to user who burns) | Temple/app key | Simple “reborn when remembered” |
+| **B. Multi-temple batons** | ALP multi-baton: one baton per temple/region | Each temple | Federated White Lotus network |
+| **C. Permissionless PoW remint** | Mist/eminer-style covenant on the baton; anyone remints by work | Rules in script | Strongest “no earthly owner”; harder to build |
+| **D. Burn-coupled remint** | Policy remints in proportion to recent burns / demand | Policy + baton custody or covenant | Closest to Lotus founder economics |
+
+Product metrics to show in the temple UI:
+
+- **Cumulative offerings burned** (never shrinks) — the spiritual ledger  
+- **Circulating tokens** (can be near zero) — not the point of the ritual  
+- **Alive mint baton(s)** — proof the flower can bloom again  
+
+**Alternative (even simpler):** burn **native XEC** with OP_RETURN memorial tags (closest to current Lotus Temple XPI burns). Use ALP when you want a **named sacred token** with an explicit rebirth (mint) story.
 
 ---
 
@@ -85,7 +111,7 @@ For a memorial offering, a burn tx can also carry **extra eMPP pushdata** (templ
 ## 6. Risks / implementation notes
 
 1. **Indexer dependency:** Invalid ALP sections are discarded by indexers; consensus still moves the sats. Always build with Chronik validation before broadcast.
-2. **Mint baton leakage:** An open baton lets someone inflate offerings and cheapen ritual burns — close or burn batons for a memorial token.
+2. **Mint baton custody:** An open baton is *required* for rebirth, but whoever holds it can inflate supply. Mitigations: mint-only-at-offering (no free airdrops), rate limits, multi-sig/temple federation, or later a PoW/covenant baton (model C).
 3. **OP_RETURN size:** Practical ALP output count is capped (~29 under current policy); fine for burns (usually 0–1 token change outputs).
 4. **UX:** Cashtab users can hold/burn ALP; in-app temple wallet should use `ecash-lib` / `ecash-wallet` rather than hand-rolled SLP.
 5. **Do not confuse TBP with product burns:** TBP is accidental-burn *prevention* for non-token chains; your product needs intentional burn *expression*.
@@ -98,7 +124,7 @@ For a memorial offering, a burn tx can also carry **extra eMPP pushdata** (templ
 
 Ship path:
 
-1. Genesis a fixed-supply ALP token (or start with XEC-only burns).  
-2. Offerings = intentional `alpBurn` (+ memorial metadata via eMPP).  
-3. Index with Chronik; render in temple UI.  
-4. Skip TBP, CashTokens, and a new L1 unless requirements change.
+1. Genesis an ALP token **with mint baton(s) kept alive** (rebirth enabled).  
+2. Offering flow = `MINT` (rebirth) → intentional `BURN` (+ memorial metadata via eMPP), or user-held tokens then burn.  
+3. Index with Chronik; show **cumulative burned** as the temple’s eternal record.  
+4. Skip TBP, CashTokens, fixed-supply, and a new L1 unless requirements change.
