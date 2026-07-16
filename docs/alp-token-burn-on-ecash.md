@@ -83,7 +83,7 @@ Practical variants (pick one trust model):
 |-------|-------------------|-------|----------------|
 | **A. Mint-at-offering (recommended v1)** | App/temple holds baton; each offering mints then burns (or mints to user who burns) | Temple/app key | Simple “reborn when remembered” |
 | **B. Multi-temple batons** | ALP multi-baton: one baton per temple/region | Each temple | Federated White Lotus network |
-| **C. Permissionless PoW remint** | Mist/eminer-style covenant on the baton; anyone remints by work | Rules in script | Strongest “no earthly owner”; harder to build |
+| **C. Permissionless PoW remint** | Mist/eminer-style covenant on the baton; anyone remints by work | Rules in script | Strongest “no earthly owner”; harder to build — see §8 |
 | **D. Burn-coupled remint** | Policy remints in proportion to recent burns / demand | Policy + baton custody or covenant | Closest to Lotus founder economics |
 
 Product metrics to show in the temple UI:
@@ -125,6 +125,96 @@ Product metrics to show in the temple UI:
 Ship path:
 
 1. Genesis an ALP token **with mint baton(s) kept alive** (rebirth enabled).  
-2. Offering flow = `MINT` (rebirth) → intentional `BURN` (+ memorial metadata via eMPP), or user-held tokens then burn.  
+2. Offering flow = intentional `BURN` (+ memorial metadata); supply reborn via mint-at-offering **or** PoW remint (§8).  
 3. Index with Chronik; show **cumulative burned** as the temple’s eternal record.  
 4. Skip TBP, CashTokens, fixed-supply, and a new L1 unless requirements change.
+
+---
+
+## 8. Feasibility: permissionless PoW remint covenant (model C)
+
+**Verdict: Feasible.** The pattern is already proven (Mist/eminer on BCH SLP). On eCash it is **somewhat easier** (native introspection, Chronik, `ecash-lib`, Agora already speaks ALP) but still a **non-trivial covenant + miner project**, not a config tweak.
+
+### 8.1 How it would work
+
+```
+GENESIS (open mint baton)
+    → send baton UTXO to PoW covenant P2SH
+         ↓
+anyone finds nonce: hash(preimage‖nonce) meets difficulty
+         ↓
+covenant allows spend only if outputs are exactly:
+  [0] eMPP OP_RETURN with ALP MINT (fixed/rules-based amount)
+  [1] minted tokens → miner (or temple pool)
+  [2] baton → next covenant address (state+1, baton never dies)
+         ↓
+devotees acquire tokens (miner sale / Agora / temple) → BURN as offering
+```
+
+Spiritual reading: **work recreates the flower; burn offers it; the baton is the eternal root.**
+
+### 8.2 Why this is realistic on eCash
+
+| Ingredient | Status |
+|------------|--------|
+| PoW mint baton covenant | Proven: Mist `slp-miner-reward-v1.spedn` + eminer |
+| Enforce tx shape in Script | Proven on BCH; eCash has **native introspection** (cleaner than Mist’s preimage parsing) |
+| ALP MINT encoding | Spec + `alpMint()` in `ecash-lib` |
+| Indexer | Chronik indexes ALP mint batons / burns |
+| ALP + covenant precedent | `ecash-agora` already builds ALP-aware covenant scripts |
+| Miner port | Rewrite eminer off BCHD/SLP onto Chronik + `ecash-lib` (moderate effort) |
+
+ALP’s **multiple mint batons** also help: e.g. one PoW baton (permissionless rebirth) + one temple baton (bootstrap / emergency) without a hard fork.
+
+### 8.3 Difficulty tiers
+
+| Tier | Design | Feasibility |
+|------|--------|-------------|
+| **MVP** | Fixed difficulty, fixed mint per success, CLTV ≈ 1 mint / N blocks (Mist-like, but **no** asymptotic “21M death”) | **High** — mostly a port + ALP OP_RETURN rewrite |
+| **v1.5** | Slow Moore-style decay of mint amount (tokens stay “effortful” as hardware improves) | **Medium** — param + state in redeemScript |
+| **v2** | Token-local DAA + `mint ∝ difficulty` (Ergon-like elastic rebirth) | **Harder** — DAA in Script/state, miner games, more audit surface |
+
+For a temple, **MVP is enough**: continuous rebirth without a central minter. Ergon-like elasticity is optional prestige, not required for ritual meaning.
+
+### 8.4 Product flow (PoW ↔ burn)
+
+Permissionless mint does **not** mint straight into a devotee’s incense burn. Typical loop:
+
+1. Miner wins remint → receives fresh tokens  
+2. Liquidity: sell on **Agora** / P2P / temple desk for XEC  
+3. Devotee burns tokens (or temple burns on their behalf with metadata)
+
+So the temple app still needs: burn UX, Chronik watchers, and a path to acquire tokens. PoW only replaces **who is allowed to create** supply.
+
+### 8.5 Main risks
+
+1. **Baton race:** First valid spend wins (same as Mist); wasted work for losers.  
+2. **Script / ALP byte exactness:** Covenant must match Chronik’s ALP parse exactly or minted tokens look invalid to wallets.  
+3. **Unaudited Script:** Mist warned its contracts were unaudited; treat White Lotus covenant as security-critical.  
+4. **Fee + hashrate cold start:** Early miners need XEC for fees; low token demand → low hashrate → slow rebirth (acceptable if temple also keeps a secondary baton).  
+5. **Economic griefing:** If mint reward ≫ burn demand, circulating dump; tune mint size / CLTV pacing.  
+6. **Not L1 consensus:** Rules live in the covenant + indexer, not eCash consensus (acceptable and normal for ALP).
+
+### 8.6 Build estimate (engineering shape, not calendar)
+
+Must build:
+
+1. CashScript / hand-asm covenant: PoW + ALP MINT eMPP template + baton recursion  
+2. Genesis + baton handoff tool  
+3. Chronik-based miner (eminer spiritual successor)  
+4. Temple burn + cumulative-burn indexer  
+5. Acquisition path (Agora listing or in-app swap)
+
+Can defer: Ergon DAA, multi-token, mobile miner GPU stack.
+
+### 8.7 Recommendation
+
+| Question | Answer |
+|----------|--------|
+| Is permissionless PoW remint feasible on eCash ALP? | **Yes** |
+| Closest prior art | Mist/eminer + eCash Agora/ALP tooling |
+| Right first covenant | Fixed difficulty + perpetual baton + paced mint (no supply cap) |
+| Ship temple before PoW? | **Yes** — mint-at-offering (model A) validates burn UX; swap baton into PoW covenant later |
+| Better than forking a White Lotus L1? | **Yes** — same rebirth idea, far less ops |
+
+**Bottom line for model C:** high conceptual fit for Eastern rebirth, **medium-high technical feasibility** via Mist-style ALP covenant on eCash; start with MVP remint rules, keep temple burn product decoupled from miner complexity.
